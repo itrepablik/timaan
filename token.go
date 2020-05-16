@@ -3,6 +3,9 @@ package timaan
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
+	"strings"
+	"sync"
 
 	"github.com/itrepablik/tago"
 )
@@ -20,11 +23,12 @@ type TK struct {
 
 // UserTokens is a users token requests stored in memory storage
 type UserTokens struct {
-	Token map[interface{}][]byte
+	Token map[string][]byte
+	mu    sync.Mutex
 }
 
 // UT is a user's token methods
-var UT = UserTokens{}
+var UT = UserTokens{Token: make(map[string][]byte)}
 
 // GenerateToken generate a new timaan token
 func GenerateToken(userName, secretKey string, payLoad TK) (string, error) {
@@ -52,21 +56,45 @@ func EncodePayload(payLoad TK) ([]byte, error) {
 }
 
 // ExtractPayload decodes the token payload
-func ExtractPayload(enc []byte, payLoad *TK) error {
-	dec := gob.NewDecoder(bytes.NewReader(enc))
+func ExtractPayload(userName string) (TK, error) {
+	if len(strings.TrimSpace(userName)) == 0 {
+		return TK{}, errors.New("username is required")
+	}
+	var payLoad = TK{}
+	tokBytes := UT.Get(userName)
+	dec := gob.NewDecoder(bytes.NewReader(tokBytes))
+
 	err := dec.Decode(&payLoad)
 	if err != nil {
-		return err
+		return TK{}, errors.New("token not found for: " + userName)
 	}
-	return nil
+	return payLoad, nil
 }
 
 // Add insert the new token request to the 'UserTokens' map
 func (t *UserTokens) Add(userName string, encBytes []byte) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.Token[userName] = encBytes
 }
 
+// Get gets the specific user's token filtered by the username
+func (t *UserTokens) Get(userName string) []byte {
+	tok, ok := t.Token[userName]
+	if !ok {
+		return []byte{}
+	}
+	return tok
+}
+
 // Remove any single stored token from the 'UserTokens' map
-func (t *UserTokens) Remove(userName string, encBytes []byte) {
+func (t *UserTokens) Remove(userName string) (bool, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	_, ok := t.Token[userName]
+	if !ok {
+		return false, errors.New("username not found")
+	}
 	delete(t.Token, userName)
+	return true, nil
 }
