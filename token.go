@@ -7,21 +7,22 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/itrepablik/tago"
+	"github.com/google/uuid"
 )
 
 // TP type stands for 'Token Payload' that uses the map[string]interface{}
 // as the custom token payload structure
 type TP map[string]interface{}
 
-// TK is a token collections storage
+// TK is a successful auth token requests after successful login
+// the TokenKey might be anything, e.g username, random unique alpha-numeric strings, etc.
 type TK struct {
-	UserName string
+	TokenKey string
 	Payload  TP
 	ExpireOn int64
 }
 
-// UserTokens is a users token requests stored in memory storage
+// UserTokens is a users auth token requests stored in memory
 type UserTokens struct {
 	Token map[string][]byte
 	mu    sync.Mutex
@@ -30,18 +31,23 @@ type UserTokens struct {
 // UT is a user's token methods
 var UT = UserTokens{Token: make(map[string][]byte)}
 
-// GenerateToken generate a new timaan token
-func GenerateToken(userName, secretKey string, payLoad TK) (string, error) {
-	newToken, err := tago.Encrypt(userName, secretKey)
-	if err != nil {
-		return "", err
+// GenerateToken generate a new timaan token which can be used mostly after successful authentication
+// process, mostly use after successful login, this can also be used as you sessions for the entire
+// duration of the token validity period.
+func GenerateToken(tokenKey string, payLoad TK) (string, error) {
+	if len(strings.TrimSpace(tokenKey)) == 0 {
+		return "", errors.New("token key is required")
 	}
 	encBytes, err := EncodePayload(payLoad)
 	if err != nil {
 		return "", err
 	}
-	UT.Add(userName, encBytes) // Add new requested token to the map
-	return newToken, nil
+	_, isTokFound := UT.Get(tokenKey)
+	if isTokFound {
+		UT.Remove(tokenKey)
+	}
+	UT.Add(tokenKey, encBytes)
+	return tokenKey, nil
 }
 
 // EncodePayload encodes the token payload using gob
@@ -55,46 +61,54 @@ func EncodePayload(payLoad TK) ([]byte, error) {
 	return data.Bytes(), nil
 }
 
-// ExtractPayload decodes the token payload
-func ExtractPayload(userName string) (TK, error) {
-	if len(strings.TrimSpace(userName)) == 0 {
-		return TK{}, errors.New("username is required")
+// DecodePayload extracts the token payload
+func DecodePayload(tokenKey string) (TK, error) {
+	if len(strings.TrimSpace(tokenKey)) == 0 {
+		return TK{}, errors.New("token key is required")
 	}
 	var payLoad = TK{}
-	tokBytes := UT.Get(userName)
+	tokBytes, _ := UT.Get(tokenKey)
 	dec := gob.NewDecoder(bytes.NewReader(tokBytes))
 
 	err := dec.Decode(&payLoad)
 	if err != nil {
-		return TK{}, errors.New("token not found for: " + userName)
+		return TK{}, errors.New("token key not found: " + tokenKey)
 	}
 	return payLoad, nil
 }
 
 // Add insert the new token request to the 'UserTokens' map
-func (t *UserTokens) Add(userName string, encBytes []byte) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.Token[userName] = encBytes
+func (t *UserTokens) Add(tokenKey string, encBytes []byte) {
+	if len(strings.TrimSpace(tokenKey)) > 0 {
+		t.mu.Lock()
+		defer t.mu.Unlock()
+		t.Token[tokenKey] = encBytes
+	}
 }
 
-// Get gets the specific user's token filtered by the username
-func (t *UserTokens) Get(userName string) []byte {
-	tok, ok := t.Token[userName]
+// Get gets the specific user's token filtered by the tokenKey
+func (t *UserTokens) Get(tokenKey string) ([]byte, bool) {
+	tok, ok := t.Token[tokenKey]
 	if !ok {
-		return []byte{}
+		return []byte{}, ok
 	}
-	return tok
+	return tok, ok
 }
 
 // Remove any single stored token from the 'UserTokens' map
-func (t *UserTokens) Remove(userName string) (bool, error) {
+func (t *UserTokens) Remove(tokenKey string) (bool, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	_, ok := t.Token[userName]
+
+	_, ok := t.Token[tokenKey]
 	if !ok {
-		return false, errors.New("username not found")
+		return false, errors.New("token key not found: " + tokenKey)
 	}
-	delete(t.Token, userName)
+	delete(t.Token, tokenKey)
 	return true, nil
+}
+
+// RandomToken uses the lower-case letters from 'a' to 'z' and positive numeric digits combination
+func RandomToken() string {
+	return strings.Replace(uuid.New().String(), "-", "", -1)
 }
