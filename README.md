@@ -78,9 +78,10 @@ func main() {
 	confirmURL := "https://itrepablik.com/confirm/" + newToken
 	fmt.Println(confirmURL)
 
-	//*******************************************************************
+	//*********************************************************************************
 	// Remove token for any specific user, e.g username: 'politz'
-	//*******************************************************************
+	// Or remove any token key for e.g token key: '54f2067c42ee4587bf239a58bcdd438a'
+	//*********************************************************************************
 	isTokenRemove, err := timaan.UT.Remove("politz")
 	if err != nil {
 		itrlog.Fatal(err)
