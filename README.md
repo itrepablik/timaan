@@ -45,7 +45,8 @@ func main() {
 	fmt.Println("newToken: ", newToken)
 
 	//*****************************************************************************
-	// Extract the token payload for specific user, e.g username: 'politz'
+	// Extract the token payload for any specific user, e.g username: 'politz'
+	// or any token key e.g: '54f2067c42ee4587bf239a58bcdd438a'
 	//*****************************************************************************
 	tok, err = timaan.DecodePayload("politz")
 	if err != nil {
