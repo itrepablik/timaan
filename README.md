@@ -36,7 +36,7 @@ func main() {
 	tok := timaan.TK{
 		TokenKey: "politz",
 		Payload:  tokenPayload,
-		ExpireOn: time.Now().Add(time.Hour * 30).Unix(),
+		ExpireOn: time.Now().Add(time.Minute * 30).Unix(),
 	}
 	newToken, err := timaan.GenerateToken("politz", tok)
 	if err != nil {
@@ -70,7 +70,7 @@ func main() {
 	tok = timaan.TK{
 		TokenKey: rt,
 		Payload:  emailConfirmPayload,
-		ExpireOn: time.Now().Add(time.Hour * 30).Unix(),
+		ExpireOn: time.Now().Add(time.Minute * 30).Unix(),
 	}
 	newToken, err = timaan.GenerateToken(rt, tok)
 	if err != nil {
