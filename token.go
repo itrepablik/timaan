@@ -34,20 +34,20 @@ var UT = UserTokens{Token: make(map[string][]byte)}
 // GenerateToken generate a new timaan token which can be used mostly after successful authentication
 // process, mostly use after successful login, this can also be used as you sessions for the entire
 // duration of the token validity period.
-func GenerateToken(tokenKey string, payLoad TK) (string, error) {
+func GenerateToken(tokenKey string, payLoad TK) ([]byte, error) {
 	if len(strings.TrimSpace(tokenKey)) == 0 {
-		return "", errors.New("token key is required")
+		return []byte{}, errors.New("token key is required")
 	}
 	encBytes, err := EncodePayload(payLoad)
 	if err != nil {
-		return "", err
+		return []byte{}, err
 	}
 	_, isTokFound := UT.Get(tokenKey)
 	if isTokFound {
 		UT.Remove(tokenKey)
 	}
 	UT.Add(tokenKey, encBytes)
-	return tokenKey, nil
+	return encBytes, nil
 }
 
 // EncodePayload encodes the token payload using gob
